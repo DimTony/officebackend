@@ -2,13 +2,16 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 
+const userUrl = process.env.USER_URL;
+const adminUrl = process.env.ADMIN_URL;
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: [
-      "http://localhost:5173", // Your login page URL
-      "http://localhost:5174", // Your admin dashboard URL
+      userUrl, // Your login page URL
+      adminUrl, // Your admin dashboard URL
     ],
     methods: ["GET", "POST"],
   },

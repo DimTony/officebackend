@@ -3,6 +3,19 @@ const http = require("http");
 const { Server } = require("socket.io");
 
 const app = express();
+
+app.use(
+  cors({
+    origin: "*", // Frontend domain
+    methods: ["GET"], // Allowed HTTP methods
+    credentials: true, // Allow cookies if needed
+  })
+);
+
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "healthy" });
+});
+
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {

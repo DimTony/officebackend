@@ -11,7 +11,7 @@ const app = express();
 
 app.use(
   cors({
-    origin: [USER_URL, ADMIN_URL], // List your allowed URLs
+    origin: [USER_URL, "https://officeadmin-ochre.vercel.app"], // List your allowed URLs
     methods: ["GET", "POST"], // Allowed HTTP methods
     credentials: true, // Allow cookies if needed
   })
@@ -20,7 +20,7 @@ app.use(
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: [USER_URL, ADMIN_URL], // List your allowed URLs
+    origin: [USER_URL, "https://officeadmin-ochre.vercel.app"], // List your allowed URLs
     methods: ["GET", "POST"],
   },
 });

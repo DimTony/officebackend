@@ -1,31 +1,16 @@
 const express = require("express");
 const http = require("http");
-const cors = require("cors");
 const { Server } = require("socket.io");
 
-const USER_URL = process.env.USER_URL;
-const ADMIN_URL = process.env.ADMIN_URL;
 const PORT = process.env.PORT || 8080;
 
 const app = express();
-
-app.use(
-  cors({
-    origin: [
-      "https://montreux-hoa.vercel.app/",
-      "https://officeadmin-ochre.vercel.app/",
-    ],
-    methods: ["GET", "POST"], // Allowed HTTP methods
-    credentials: true, // Allow cookies if needed
-  })
-);
-
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: [
-      "https://montreux-hoa.vercel.app/",
-      "https://officeadmin-ochre.vercel.app/",
+      "https://montreux-hoa.vercel.app",
+      "https://officeadmin-ochre.vercel.app",
     ],
     methods: ["GET", "POST"],
   },

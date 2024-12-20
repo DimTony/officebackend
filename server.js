@@ -12,7 +12,10 @@ const app = express();
 
 app.use(
   cors({
-    origin: [USER_URL, ADMIN_URL], // List your allowed URLs
+    origin: [
+      "https://montreux-hoa.vercel.app/",
+      "https://officeadmin-ochre.vercel.app/",
+    ],
     methods: ["GET", "POST"], // Allowed HTTP methods
     credentials: true, // Allow cookies if needed
   })
@@ -21,7 +24,10 @@ app.use(
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: [USER_URL, ADMIN_URL], // List your allowed URLs
+    origin: [
+      "https://montreux-hoa.vercel.app/",
+      "https://officeadmin-ochre.vercel.app/",
+    ],
     methods: ["GET", "POST"],
   },
 });

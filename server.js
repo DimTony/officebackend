@@ -24,12 +24,12 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: [
-      // process.env.ADMIN_URL,
-      // process.env.OFFICE365_USER_URL,
-      // process.env.IG_USER_URL,
-      // process.env.FB_USER_URL,
-      process.env.TEST_USER_URL,
-      process.env.TEST_ADMIN_URL,
+      process.env.ADMIN_URL,
+      process.env.OFFICE365_USER_URL,
+      process.env.IG_USER_URL,
+      process.env.FB_USER_URL,
+      // process.env.TEST_USER_URL,
+      // process.env.TEST_ADMIN_URL,
     ],
     methods: ["GET", "POST"],
   },

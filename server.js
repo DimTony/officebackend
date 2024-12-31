@@ -27,7 +27,6 @@ app.use(
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    // origin: [process.env.TEST_USER_URL, process.env.TEST_ADMIN_URL],
     origin: [
       process.env.ADMIN_URL,
       process.env.OFFICE365_USER_URL,
@@ -45,7 +44,7 @@ const upload = multer({
   storage,
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB limit
-    files: 5, // maximum 5 files
+    // files: 5, // maximum 5 files
   },
 }).array("files");
 

